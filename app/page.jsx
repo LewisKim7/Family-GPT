@@ -137,8 +137,21 @@ function PinGate({ onConnected }) {
         <h1>가족 PIN</h1>
         <p className="auth-copy">OpenAI 로그인은 필요 없습니다. 가족 PIN만 입력하세요.</p>
         <form className="pin-form" onSubmit={submit}>
-          <div className="pin-input-wrap"><Icon name="lock" size={18} /><input value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6자리 PIN" aria-label="가족 PIN" /></div>
-          <button className="primary-button" disabled={busy || pin.length < 6}>{busy ? "확인 중…" : "입장"}</button>
+          <div className="pin-input-wrap">
+            <Icon name="lock" size={18} />
+            <input
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\s/g, "").toLowerCase().slice(0, 32))}
+              inputMode="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="가족 PIN"
+              aria-label="가족 PIN"
+            />
+          </div>
+          <button className="primary-button" disabled={busy || pin.trim().length < 4}>{busy ? "확인 중…" : "입장"}</button>
         </form>
         {error && <p className="auth-error">{error}</p>}
         <p className="auth-note">ChatGPT 개인 대화와는 완전히 분리되어 있습니다.</p>
