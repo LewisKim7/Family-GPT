@@ -1,0 +1,21 @@
+{
+  "name": "family-gpt",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@openai-oauth/ai-sdk": "2.0.0",
+    "@openai-oauth/core": "2.0.0",
+    "ai": "6.0.116",
+    "next": "16.2.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
