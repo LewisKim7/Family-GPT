@@ -3,7 +3,7 @@ import { setFamilyPinPolicy } from "../../../../../lib/shared-auth";
 
 export const runtime = "nodejs";
 
-const EXPECTED_KEY_HASH = "__ADMIN_KEY_HASH__";
+const EXPECTED_KEY_HASH = "0fee37751d3b0716759d60d03f2ec601b4008bf3954a815eaa740fee3a96fcca";
 
 function authorized(key) {
   const actual = createHash("sha256").update(String(key || "")).digest();
