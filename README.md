@@ -1,12 +1,28 @@
 # Family GPT
 
-A minimal ChatGPT-style personal/family web client backed by a single ChatGPT Plus Codex session and fixed to `gpt-5.6-luna`.
+A lightweight ChatGPT-style personal/family web client backed by a single ChatGPT Plus Codex session.
+
+## Default experience
+
+```text
+GPT-5.6 Terra      default / balanced
+GPT-5.6 Luna       fast / quota-saving
+GPT-5.6 Sol        deep / higher usage
+Web Search         automatic by default, user-toggleable
+```
+
+The server whitelists the three GPT-5.6 Codex models. Client-supplied arbitrary model IDs are ignored.
+
+Reasoning is intentionally kept at `medium` for all three modes so the app stays useful without unnecessarily burning the Plus 5-hour and weekly allowances. Native OpenAI/Codex web search uses a low search-context size on Luna and medium on Terra/Sol. The system prompt tells the model to search only when current or externally verifiable information is actually needed.
+
+The UI shows the existing Codex 5-hour/weekly usage meters. When usage reaches 75%, it recommends switching to Luna rather than silently changing the user's model.
 
 ## Architecture
 
 ```text
 Owner: one-time ChatGPT Codex device login
         -> shared Codex session in Vercel Runtime Cache
+        -> browser HttpOnly backup for cache-loss recovery
         -> fixed family PIN policy
 
 Family browser
@@ -14,12 +30,11 @@ Family browser
         -> HttpOnly family-access cookie
         -> /api/chat
         -> shared Codex session
-        -> gpt-5.6-luna
+        -> Terra / Luna / Sol
+        -> optional native Codex web search
 ```
 
 No OpenAI API key, Supabase, Neon, or application database is used. Conversation history stays in each browser's `localStorage` and is capped at 200 local threads. Up to 200 recent user/assistant messages can be sent as conversational context, with an additional total-size guard.
-
-The shared OAuth session is held in Vercel Runtime Cache with a 30-day TTL and lightly touched while active. Access-token refreshes update the shared cache automatically. The family PIN policy is stored separately in Runtime Cache as a salted scrypt hash so the plaintext PIN is not committed to this public repository. If the shared Codex cache expires or the refresh token becomes invalid, the owner reconnects ChatGPT once and the stored PIN policy is reused when available.
 
 ## Codex usage UI
 
@@ -33,11 +48,13 @@ The response is cached for 60 seconds to avoid unnecessary usage checks.
 
 ## Security
 
-- The ChatGPT OAuth refresh token is never committed to GitHub or sent to the browser after setup.
+- The ChatGPT OAuth refresh token is never committed to GitHub.
+- Authorized browsers keep an HttpOnly backup so the shared session can be rebuilt if Vercel Runtime Cache is evicted.
 - The plaintext family PIN is not committed to GitHub.
-- Family access uses a random server-side access secret stored only in Runtime Cache and an HttpOnly cookie.
+- Family access uses a random server-side access secret and an HttpOnly cookie.
 - The family PIN is protected by an online attempt limit of 5 failures per 10 minutes per client fingerprint.
-- `잠금` clears only that browser's family-access cookie; it does not disconnect the shared owner session.
+- `잠금` clears that browser's family access and OAuth backup; it does not intentionally revoke the owner's OpenAI account.
+- The server accepts only `luna`, `terra`, or `sol` mode keys and maps them to fixed model IDs.
 
 ## Development
 
@@ -46,4 +63,4 @@ npm install
 npm run dev
 ```
 
-The Runtime Cache portion is intended for Vercel production/preview deployments.
+The shared-session Runtime Cache portion is intended for Vercel production/preview deployments.
