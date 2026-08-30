@@ -7,20 +7,22 @@ A lightweight ChatGPT-style personal/family web client backed by a single ChatGP
 ```text
 Auto               default; routes each prompt without an extra model call
   -> GPT-5.6 Luna   lightweight / quota-saving work
-  -> GPT-5.6 Terra  normal balanced work
+  -> GPT-5.6 Terra  normal balanced work and current-info/search questions
   -> GPT-5.6 Sol    genuinely difficult work
 Web Search          automatic by default, user-toggleable
 ```
 
-Parents and other non-technical users can simply leave the model control on **Auto**. Luna and Sol remain available as explicit manual overrides.
+Parents and other non-technical users can simply leave the model control on **Auto**. Luna, Terra, and Sol remain available as explicit manual overrides.
 
-The automatic router is deterministic and local to the server; it does not call a separate classifier model, so routing itself consumes no additional ChatGPT Plus/Codex inference allowance. It considers the latest prompt shape and the already-available Codex 5-hour/weekly usage snapshot:
+`Auto` is a real client/server mode, not a renamed Terra button. The automatic router is deterministic and local to the server; it does not call a separate classifier model, so routing itself consumes no additional ChatGPT Plus/Codex inference allowance. It considers the latest prompt shape and the already-available Codex 5-hour/weekly usage snapshot:
 
-- Normal everyday questions -> Terra.
-- Short translation, correction, summarization, simple calculation, and small current-info lookups -> Luna.
+- Normal everyday questions and current-info/search questions -> Terra.
+- Short translation, correction, summarization, simple calculation, and other lightweight work -> Luna.
 - Explicit deep analysis, complex strategy/coding/math, or long multi-step prompts -> Sol.
 - At 80%+ usage, Auto suppresses Sol and favors Terra/Luna.
 - At 90%+ usage, Auto favors Luna and keeps Terra only for difficult prompts.
+
+The response includes the actual routed model in headers, and the client stores/displays that real model on each assistant answer. Legacy v1 browser preferences are migrated to Auto so an old saved Luna/Terra/Sol choice cannot silently bypass routing.
 
 Reasoning stays at `medium` for all three models. Native OpenAI/Codex web search uses low search context on Luna and, when quota is healthy, medium context on Terra/Sol. At 80%+ usage, search context is also reduced to low.
 
@@ -61,7 +63,7 @@ The response is cached for 60 seconds. The same cached snapshot feeds the Auto r
 - Family access uses a random server-side access secret and an HttpOnly cookie.
 - The family PIN is protected by an online attempt limit of 5 failures per 10 minutes per client fingerprint.
 - `잠금` clears that browser's family access and OAuth backup; it does not intentionally revoke the owner's OpenAI account.
-- The server maps only the supported Auto/Luna/Sol behavior to fixed GPT-5.6 model IDs; arbitrary client model IDs are ignored.
+- The server maps only Auto/Luna/Terra/Sol modes to fixed GPT-5.6 model IDs; arbitrary client model IDs are ignored.
 
 ## Development
 

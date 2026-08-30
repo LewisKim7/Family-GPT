@@ -1,4 +1,4 @@
-/* Family GPT smart-model UI v0.5 */
+/* Family GPT smart-model UI v0.6 */
 
 .luna-orb.message-orb{width:28px;height:28px;flex:0 0 28px;border-radius:9px;font-size:11px;box-shadow:none}
 .message-stack{display:flex;flex-direction:column;min-width:0;max-width:100%}
@@ -10,7 +10,7 @@
 
 .topbar{gap:10px;border-bottom:1px solid rgba(0,0,0,.04)}
 .model-selector{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #e7e7e9;background:#f7f7f8;border-radius:13px}
-.model-option{display:flex;align-items:center;gap:7px;border:0;background:transparent;border-radius:10px;padding:6px 9px;cursor:pointer;color:#77787c;min-width:86px;transition:background .15s,color .15s,box-shadow .15s}
+.model-option{display:flex;align-items:center;gap:7px;border:0;background:transparent;border-radius:10px;padding:6px 9px;cursor:pointer;color:#77787c;min-width:78px;transition:background .15s,color .15s,box-shadow .15s}
 .model-option:hover{background:#ededee;color:#35363a}
 .model-option.active{background:#fff;color:#202123;box-shadow:0 1px 5px rgba(0,0,0,.08)}
 .model-option:disabled{cursor:default;opacity:.65}
@@ -19,16 +19,6 @@
 .model-option-copy strong{font-size:11px;font-weight:700}
 .model-option-copy small{font-size:8px;margin-top:3px;color:#98999d;white-space:nowrap}
 .model-option.active .model-option-copy small{color:#737479}
-
-/* The existing Terra/default slot is now Auto. The server normally routes Auto to Terra,
-   but uses Luna for lightweight work and Sol only for genuinely difficult work. */
-.model-selector .model-option:nth-child(2) .model-option-icon{font-size:0}
-.model-selector .model-option:nth-child(2) .model-option-icon::after{content:"✦";font-size:13px;line-height:1}
-.model-selector .model-option:nth-child(2) .model-option-copy strong{font-size:0}
-.model-selector .model-option:nth-child(2) .model-option-copy strong::after{content:"자동";font-size:11px;font-weight:700}
-.model-selector .model-option:nth-child(2) .model-option-copy small{font-size:0}
-.model-selector .model-option:nth-child(2) .model-option-copy small::after{content:"알아서 선택";font-size:8px}
-
 .search-toggle{margin-left:auto;display:flex;align-items:center;gap:6px;border:1px solid #e1e1e4;background:#fff;border-radius:11px;padding:8px 10px;color:#77787c;font-size:11px;font-weight:650;cursor:pointer}
 .search-toggle:hover{background:#f6f6f7}
 .search-toggle.active{background:#eef7f2;border-color:#cfe7da;color:#24734c}
@@ -36,43 +26,37 @@
 
 .mode-summary{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:18px}
 .mode-summary span{padding:6px 9px;border:1px solid #e6e6e8;border-radius:999px;color:#77787c;background:#fafafa;font-size:10px}
-.app-shell:has(.model-option:nth-child(2).active) .mode-summary span:nth-child(2){font-size:0}
-.app-shell:has(.model-option:nth-child(2).active) .mode-summary span:nth-child(2)::after{content:"✦ 자동 기본";font-size:10px}
 
 .composer-status{display:flex;align-items:center;gap:10px;color:#898a8e;font-size:10px}
 .composer-status>span{display:flex;align-items:center;gap:4px}
 .composer-status .search-on{color:#2e7a54}
-.app-shell:has(.model-option:nth-child(2).active) .composer-status>span:first-child{font-size:0}
-.app-shell:has(.model-option:nth-child(2).active) .composer-status>span:first-child::after{content:"자동 모델";font-size:10px}
-.app-shell:has(.model-option:nth-child(2).active) .sidebar-account .account-copy span{font-size:0}
-.app-shell:has(.model-option:nth-child(2).active) .sidebar-account .account-copy span::after{content:"자동 모델 · 가족 PIN";font-size:10px}
-.app-shell:has(.model-option:nth-child(2).active) .empty-state>p{font-size:0}
-.app-shell:has(.model-option:nth-child(2).active) .empty-state>p::after{content:"질문 난이도와 Plus 사용량에 맞춰 모델을 자동 선택합니다. 최신 정보는 필요할 때 검색합니다.";font-size:13px}
 
 .usage-saver{width:100%;margin-top:10px;border:1px solid #eadfbd;background:#fffaf0;color:#8a6720;border-radius:8px;padding:7px 8px;font-size:9px;font-weight:700;cursor:pointer;text-align:left}
 .usage-saver:hover{background:#fff6df}
 
-@media(max-width:900px){
+@media(max-width:980px){
   .model-option{min-width:auto;padding:7px 8px}
   .model-option-copy small{display:none}
   .model-option-copy strong{font-size:10px}
-  .model-selector .model-option:nth-child(2) .model-option-copy strong::after{font-size:10px}
 }
 
 @media(max-width:760px){
   .topbar{gap:5px;overflow:hidden}
   .model-selector{flex:1;min-width:0;justify-content:space-between;gap:2px;padding:2px}
-  .model-option{flex:1;justify-content:center;min-width:0;padding:7px 5px;gap:4px}
+  .model-option{flex:1;justify-content:center;min-width:0;padding:7px 4px;gap:3px}
   .model-option-icon{font-size:11px}
   .model-option-copy strong{font-size:9px}
-  .model-selector .model-option:nth-child(2) .model-option-icon::after{font-size:11px}
-  .model-selector .model-option:nth-child(2) .model-option-copy strong::after{font-size:9px}
   .search-toggle{margin-left:0;flex:0 0 auto;padding:8px}
   .search-toggle span{display:none}
   .message-stack.assistant{max-width:calc(100% - 38px)}
   .mode-summary{gap:5px;margin-top:14px}
   .mode-summary span{font-size:9px;padding:5px 7px}
-  .app-shell:has(.model-option:nth-child(2).active) .mode-summary span:nth-child(2)::after{font-size:9px}
+}
+
+@media(max-width:430px){
+  .model-option-copy{display:none}
+  .model-option{padding:8px 7px}
+  .model-option-icon{font-size:13px}
 }
 
 @media(prefers-color-scheme:dark){

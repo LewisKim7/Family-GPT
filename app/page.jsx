@@ -8,10 +8,20 @@ const LEGACY_STORAGE_KEYS = [
   "luna-chat:conversations:v2",
   "luna-chat:conversations:v1",
 ];
-const PREF_KEY = "family-gpt:preferences:v1";
+const PREF_KEY = "family-gpt:preferences:v2";
+const LEGACY_PREF_KEY = "family-gpt:preferences:v1";
 const MAX_CONVERSATIONS = 200;
 
 const MODEL_OPTIONS = {
+  auto: {
+    key: "auto",
+    name: "자동",
+    fullName: "자동 모델 선택",
+    mark: "A",
+    icon: "✦",
+    note: "질문에 맞게",
+    usage: "Luna · Terra · Sol 자동",
+  },
   luna: {
     key: "luna",
     name: "Luna",
@@ -27,7 +37,7 @@ const MODEL_OPTIONS = {
     fullName: "GPT-5.6 Terra",
     mark: "T",
     icon: "◆",
-    note: "균형 · 기본",
+    note: "균형 · 수동",
     usage: "약 7 credits/작업",
   },
   sol: {
@@ -111,8 +121,8 @@ function Icon({ name, size = 20 }) {
   return null;
 }
 
-function ModelOrb({ model = "terra", size = "normal" }) {
-  const option = MODEL_OPTIONS[model] || MODEL_OPTIONS.terra;
+function ModelOrb({ model = "auto", size = "normal" }) {
+  const option = MODEL_OPTIONS[model] || MODEL_OPTIONS.auto;
   return <div className={`luna-orb ${size}`.trim()}><span>{option.mark}</span></div>;
 }
 
@@ -135,7 +145,7 @@ function Message({ message }) {
           </div>
           {message.role === "assistant" && message.content && (
             <div className="message-meta">
-              <span>{model.name}{message.webSearch ? " · 웹검색 가능" : ""}</span>
+              <span>{model.name}{message.automatic ? " · 자동 선택" : ""}{message.webSearch ? " · 웹검색 가능" : ""}</span>
               <button onClick={copyText} aria-label="답변 복사"><Icon name="copy" size={13} /> 복사</button>
             </div>
           )}
@@ -153,7 +163,7 @@ function PinReveal({ pin, onDone }) {
   return (
     <main className="auth-shell">
       <section className="auth-card pin-reveal-card">
-        <ModelOrb model="terra" size="large" />
+        <ModelOrb model="auto" size="large" />
         <p className="eyebrow">FAMILY ACCESS</p>
         <h1>가족 PIN이 생성됐습니다</h1>
         <p className="auth-copy">앞으로 가족은 OpenAI 로그인 없이 이 PIN만 입력하면 Family GPT를 사용할 수 있습니다.</p>
@@ -195,7 +205,7 @@ function PinGate({ onConnected }) {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <ModelOrb model="terra" size="large" />
+        <ModelOrb model="auto" size="large" />
         <p className="eyebrow">FAMILY GPT</p>
         <h1>가족 PIN</h1>
         <p className="auth-copy">OpenAI 로그인은 필요 없습니다. 가족 PIN만 입력하세요.</p>
@@ -274,7 +284,7 @@ function OwnerAuthGate({ onConnected }) {
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <ModelOrb model="terra" size="large" />
+        <ModelOrb model="auto" size="large" />
         <p className="eyebrow">OWNER SETUP</p>
         <h1>Family GPT</h1>
         <p className="auth-copy">공용 Codex 세션이 없습니다. 소유자가 ChatGPT Plus를 한 번만 연결하면 이후 가족은 PIN만 사용합니다.</p>
@@ -339,7 +349,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState("");
-  const [model, setModel] = useState("terra");
+  const [model, setModel] = useState("auto");
   const [webSearch, setWebSearch] = useState(true);
   const endRef = useRef(null);
   const textareaRef = useRef(null);
@@ -371,10 +381,21 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const prefs = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
-      if (MODEL_OPTIONS[prefs.model]) setModel(prefs.model);
-      if (typeof prefs.webSearch === "boolean") setWebSearch(prefs.webSearch);
-    } catch {}
+      const rawPrefs = localStorage.getItem(PREF_KEY);
+      if (rawPrefs) {
+        const prefs = JSON.parse(rawPrefs);
+        if (MODEL_OPTIONS[prefs.model]) setModel(prefs.model);
+        if (typeof prefs.webSearch === "boolean") setWebSearch(prefs.webSearch);
+      } else {
+        // v1 stored a concrete model (often Luna). Reset that legacy choice to real Auto,
+        // while preserving only the user's web-search preference.
+        const legacyPrefs = JSON.parse(localStorage.getItem(LEGACY_PREF_KEY) || "{}");
+        if (typeof legacyPrefs.webSearch === "boolean") setWebSearch(legacyPrefs.webSearch);
+        setModel("auto");
+      }
+    } catch {
+      setModel("auto");
+    }
 
     try {
       let raw = localStorage.getItem(STORAGE_KEY);
@@ -428,7 +449,7 @@ export default function Home() {
   }, [draft]);
 
   const active = useMemo(() => conversations.find((conversation) => conversation.id === activeId) || conversations[0], [conversations, activeId]);
-  const selectedModel = MODEL_OPTIONS[model] || MODEL_OPTIONS.terra;
+  const selectedModel = MODEL_OPTIONS[model] || MODEL_OPTIONS.auto;
   const maxUsage = Math.max(Number(usage?.primary?.usedPercent || 0), Number(usage?.secondary?.usedPercent || 0));
   const usageHigh = maxUsage >= 75;
 
@@ -497,6 +518,7 @@ export default function Home() {
       role: "assistant",
       content: "",
       model: turnOptions.model,
+      automatic: turnOptions.model === "auto",
       webSearch: turnOptions.webSearch,
     };
     const firstUserMessage = active.messages.every((message) => message.role !== "user");
@@ -520,6 +542,19 @@ export default function Home() {
         throw new Error(payload.error || "답변을 가져오지 못했습니다.");
       }
       if (!response.body) throw new Error("스트리밍 응답을 열 수 없습니다.");
+
+      const routedModel = response.headers.get("x-model-mode");
+      const automatic = response.headers.get("x-model-automatic") === "true";
+      if (routedModel && MODEL_OPTIONS[routedModel]) {
+        updateActive((conversation) => ({
+          ...conversation,
+          messages: conversation.messages.map((message) =>
+            message.id === assistantMessage.id
+              ? { ...message, model: routedModel, automatic }
+              : message,
+          ),
+        }));
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -563,7 +598,7 @@ export default function Home() {
     setUsage(null);
   }
 
-  if (!ready || authState === "checking") return <div className="loading-screen"><ModelOrb model="terra" /></div>;
+  if (!ready || authState === "checking") return <div className="loading-screen"><ModelOrb model="auto" /></div>;
   if (setupPin) return <PinReveal pin={setupPin} onDone={() => setSetupPin(null)} />;
   if (authState === "pin_required") return <PinGate onConnected={() => setAuthState("connected")} />;
   if (authState !== "connected") return <OwnerAuthGate onConnected={(pin) => { setAuthState("connected"); if (pin) setSetupPin(pin); }} />;
@@ -595,9 +630,10 @@ export default function Home() {
               <UsageMeter label={windowLabel(usage.primary, "단기")} window={usage.primary} />
               <UsageMeter label={windowLabel(usage.secondary, "장기")} window={usage.secondary} />
               {!usage.primary && !usage.secondary && <div className="usage-empty">사용량 정보 없음</div>}
-              {usageHigh && model !== "luna" && (
+              {usageHigh && model !== "luna" && model !== "auto" && (
                 <button className="usage-saver" onClick={() => setModel("luna")}>사용량 높음 · ⚡ Luna로 절약</button>
               )}
+              {usageHigh && model === "auto" && <div className="usage-empty">자동 모드가 사용량을 절약해 선택합니다.</div>}
             </>
           ) : <div className="usage-empty">{usageLoading ? "확인 중…" : "사용량 정보 없음"}</div>}
         </div>
@@ -630,9 +666,9 @@ export default function Home() {
             <div className="empty-state">
               <ModelOrb model={model} size="hero" />
               <h1>무엇을 도와드릴까요?</h1>
-              <p>{selectedModel.fullName}가 답합니다. {webSearch ? "최신 정보는 필요할 때 자동 검색합니다." : "웹검색은 꺼져 있습니다."}</p>
+              <p>{model === "auto" ? "질문 난이도와 사용량에 맞춰 Luna · Terra · Sol을 자동 선택합니다." : `${selectedModel.fullName}가 답합니다.`} {webSearch ? "최신 정보는 필요할 때 자동 검색합니다." : "웹검색은 꺼져 있습니다."}</p>
               <div className="mode-summary">
-                <span>⚡ Luna 절약</span><span>◆ Terra 기본</span><span>🧠 Sol 깊게</span>
+                <span>✦ 자동 기본</span><span>⚡ Luna 절약</span><span>◆ Terra 균형</span><span>🧠 Sol 깊게</span>
               </div>
             </div>
           ) : (
@@ -672,7 +708,7 @@ export default function Home() {
               )}
             </div>
           </div>
-          <p className="disclaimer">Terra가 기본입니다. Sol은 어려운 질문에만 쓰면 Plus 사용량을 아낄 수 있습니다.</p>
+          <p className="disclaimer">자동이 기본입니다. 질문 난이도와 Codex 사용량에 맞춰 Luna · Terra · Sol을 선택합니다.</p>
         </div>
       </section>
     </main>
