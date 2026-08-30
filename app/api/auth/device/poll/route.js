@@ -1,24 +1,13 @@
 import {
   DEFAULT_OPENAI_OAUTH_CLIENT_ID,
-  deriveAccountId,
   exchangeOpenAIOAuthCode,
 } from "@openai-oauth/core";
 import { cookies } from "next/headers";
+import { createSharedSessionFromTokens } from "../../../../../lib/shared-auth";
 
 export const runtime = "nodejs";
 
 const AUTH_BASE_URL = "https://auth.openai.com";
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
-
-function sessionCookieOptions(maxAge = SESSION_TTL_SECONDS) {
-  return {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    path: "/",
-    maxAge,
-  };
-}
 
 function clearPending(store) {
   store.delete("luna_device_id");
@@ -69,23 +58,18 @@ export async function POST() {
     clientId: DEFAULT_OPENAI_OAUTH_CLIENT_ID,
   });
 
-  const accountId =
-    tokenResult.accountId ??
-    deriveAccountId(tokenResult.idToken) ??
-    deriveAccountId(tokenResult.accessToken);
-
-  if (!accountId || !tokenResult.refreshToken) {
-    return Response.json({ error: "Could not establish a persistent ChatGPT session." }, { status: 502 });
+  try {
+    const shared = await createSharedSessionFromTokens(store, tokenResult);
+    clearPending(store);
+    return Response.json({
+      status: "connected",
+      accountId: shared.state.accountId,
+      generatedPin: shared.generatedPin,
+    });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Could not persist shared session." },
+      { status: 502 },
+    );
   }
-
-  const accessMaxAge = Math.max(60, Number(tokenResult.expiresIn ?? 3600));
-  const expiresAt = Date.now() + accessMaxAge * 1000;
-
-  store.set("luna_access", tokenResult.accessToken, sessionCookieOptions(accessMaxAge));
-  store.set("luna_refresh", tokenResult.refreshToken, sessionCookieOptions());
-  store.set("luna_account", accountId, sessionCookieOptions());
-  store.set("luna_expires", String(expiresAt), sessionCookieOptions());
-  clearPending(store);
-
-  return Response.json({ status: "connected", accountId });
 }

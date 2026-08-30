@@ -1,39 +1,48 @@
-# Family GPT / Luna Chat
+# Family GPT
 
-A minimal ChatGPT-style web client that uses the ChatGPT account's Codex entitlement with `gpt-5.6-luna` fixed as the model.
+A minimal ChatGPT-style personal/family web client backed by a single ChatGPT Plus Codex session and fixed to `gpt-5.6-luna`.
 
-## Authentication
+## Architecture
 
-This version does **not** require a browser extension and does **not** use an OpenAI API key.
+```text
+Owner: one-time ChatGPT Codex device login
+        -> shared Codex session in Vercel Runtime Cache
+        -> 6-digit family PIN
 
-It follows Codex's device-code authentication flow:
+Family browser
+        -> family PIN once
+        -> HttpOnly family-access cookie
+        -> /api/chat
+        -> shared Codex session
+        -> gpt-5.6-luna
+```
 
-1. The site requests a one-time device code from OpenAI.
-2. The user approves that code at `https://auth.openai.com/codex/device`.
-3. The server exchanges the approval for Codex OAuth tokens.
-4. Tokens are kept in `HttpOnly`, `Secure`, `SameSite=Strict` cookies in that browser.
-5. Access tokens are refreshed with the refresh token when needed.
+No OpenAI API key, Supabase, Neon, or application database is used. Conversation history stays in each browser's `localStorage` and is capped at 200 local threads. Up to 200 recent user/assistant messages can be sent as conversational context, with an additional total-size guard.
 
-The public Codex OAuth client ID is used by the server. A device user code is never hard-coded because OpenAI issues it per login and it expires after about 15 minutes.
+The shared OAuth session is held in Vercel Runtime Cache with a 30-day TTL and lightly touched while active. Access-token refreshes update the shared cache automatically. If the cache expires or the refresh token becomes invalid, the owner reconnects ChatGPT once and a new family PIN is generated.
 
-## Data
+## Codex usage UI
 
-- No database.
-- Conversation history is stored only in browser `localStorage`.
-- OAuth tokens are not committed to GitHub and are not exposed to client JavaScript.
-- No Vercel environment variable or OpenAI API key is required.
+The sidebar reads Codex rate-limit usage from the same endpoint used by Codex itself:
 
-## Model
+```text
+GET https://chatgpt.com/backend-api/wham/usage
+```
 
-`gpt-5.6-luna` only.
+The response is cached for 60 seconds to avoid unnecessary usage checks.
 
-## Local development
+## Security
+
+- The ChatGPT OAuth refresh token is never committed to GitHub or sent to the browser after setup.
+- Family access uses a random server-side access secret stored only in Runtime Cache and an HttpOnly cookie.
+- The 6-digit PIN is protected by an online attempt limit of 5 failures per 10 minutes per client fingerprint.
+- `잠금` clears only that browser's family-access cookie; it does not disconnect the shared owner session.
+
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Deployment
-
-Standard Next.js deployment on Vercel.
+The Runtime Cache portion is intended for Vercel production/preview deployments.

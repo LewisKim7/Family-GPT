@@ -1,6 +1,6 @@
 {
   "name": "family-gpt",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,7 +13,8 @@
     "ai": "6.0.116",
     "next": "16.2.10",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "@vercel/functions": "3.7.6"
   },
   "engines": {
     "node": "24.x"
