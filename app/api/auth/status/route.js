@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import {
+  grantFamilyAccess,
   hasFamilyAccess,
   migrateLegacySession,
   readSharedState,
@@ -20,7 +21,7 @@ export async function GET() {
         connected: true,
         shared: true,
         accountId: migrated.state.accountId,
-        generatedPin: migrated.generatedPin,
+        recovered: true,
       });
     }
 
@@ -31,6 +32,7 @@ export async function GET() {
   }
 
   if (hasFamilyAccess(store, state)) {
+    grantFamilyAccess(store, state);
     return Response.json({
       status: "connected",
       connected: true,
