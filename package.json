@@ -1,6 +1,6 @@
 {
   "name": "family-gpt",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,13 +8,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/openai": "3.0.41",
     "@openai-oauth/ai-sdk": "2.0.0",
     "@openai-oauth/core": "2.0.0",
+    "@vercel/functions": "3.7.6",
     "ai": "6.0.116",
     "next": "16.2.10",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "@vercel/functions": "3.7.6"
+    "react-dom": "^19.2.3"
   },
   "engines": {
     "node": "24.x"
