@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { setFamilyPinPolicy } from "../../../../../lib/shared-auth";
+import { setFamilyPinPolicy } from "../../../../lib/shared-auth";
 
 export const runtime = "nodejs";
 
