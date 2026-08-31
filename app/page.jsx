@@ -129,6 +129,11 @@ function ModelOrb({ model = "auto", size = "normal" }) {
 function Message({ message }) {
   const modelKey = MODEL_OPTIONS[message.model] ? message.model : "terra";
   const model = MODEL_OPTIONS[modelKey];
+  const searchLabel = message.searchMode === "required"
+    ? " · 웹검색 사용"
+    : message.searchMode === "auto" || message.webSearch
+      ? " · 검색 자동"
+      : "";
 
   async function copyText() {
     if (!message.content) return;
@@ -145,7 +150,7 @@ function Message({ message }) {
           </div>
           {message.role === "assistant" && message.content && (
             <div className="message-meta">
-              <span>{model.name}{message.automatic ? " · 자동 선택" : ""}{message.webSearch ? " · 웹검색 가능" : ""}</span>
+              <span>{model.name}{message.automatic ? " · 자동 선택" : ""}{searchLabel}</span>
               <button onClick={copyText} aria-label="답변 복사"><Icon name="copy" size={13} /> 복사</button>
             </div>
           )}
@@ -387,8 +392,6 @@ export default function Home() {
         if (MODEL_OPTIONS[prefs.model]) setModel(prefs.model);
         if (typeof prefs.webSearch === "boolean") setWebSearch(prefs.webSearch);
       } else {
-        // v1 stored a concrete model (often Luna). Reset that legacy choice to real Auto,
-        // while preserving only the user's web-search preference.
         const legacyPrefs = JSON.parse(localStorage.getItem(LEGACY_PREF_KEY) || "{}");
         if (typeof legacyPrefs.webSearch === "boolean") setWebSearch(legacyPrefs.webSearch);
         setModel("auto");
@@ -520,6 +523,7 @@ export default function Home() {
       model: turnOptions.model,
       automatic: turnOptions.model === "auto",
       webSearch: turnOptions.webSearch,
+      searchMode: turnOptions.webSearch ? "auto" : "off",
     };
     const firstUserMessage = active.messages.every((message) => message.role !== "user");
 
@@ -545,16 +549,21 @@ export default function Home() {
 
       const routedModel = response.headers.get("x-model-mode");
       const automatic = response.headers.get("x-model-automatic") === "true";
-      if (routedModel && MODEL_OPTIONS[routedModel]) {
-        updateActive((conversation) => ({
-          ...conversation,
-          messages: conversation.messages.map((message) =>
-            message.id === assistantMessage.id
-              ? { ...message, model: routedModel, automatic }
-              : message,
-          ),
-        }));
-      }
+      const searchMode = response.headers.get("x-web-search") || (turnOptions.webSearch ? "auto" : "off");
+      updateActive((conversation) => ({
+        ...conversation,
+        messages: conversation.messages.map((message) =>
+          message.id === assistantMessage.id
+            ? {
+                ...message,
+                ...(routedModel && MODEL_OPTIONS[routedModel] ? { model: routedModel } : {}),
+                automatic,
+                searchMode,
+                webSearch: searchMode !== "off",
+              }
+            : message,
+        ),
+      }));
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -654,7 +663,7 @@ export default function Home() {
             onClick={() => setWebSearch((value) => !value)}
             disabled={isGenerating}
             aria-pressed={webSearch}
-            title="최신 정보가 필요할 때 모델이 웹검색을 자동으로 사용합니다."
+            title="최신 정보나 검색 요청은 웹검색을 반드시 사용하고, 안정적인 질문에서는 필요할 때 자동 검색합니다."
           >
             <Icon name="globe" size={16} />
             <span>{webSearch ? "검색 자동" : "검색 끔"}</span>
@@ -666,7 +675,7 @@ export default function Home() {
             <div className="empty-state">
               <ModelOrb model={model} size="hero" />
               <h1>무엇을 도와드릴까요?</h1>
-              <p>{model === "auto" ? "질문 난이도와 사용량에 맞춰 Luna · Terra · Sol을 자동 선택합니다." : `${selectedModel.fullName}가 답합니다.`} {webSearch ? "최신 정보는 필요할 때 자동 검색합니다." : "웹검색은 꺼져 있습니다."}</p>
+              <p>{model === "auto" ? "질문 난이도와 사용량에 맞춰 Luna · Terra · Sol을 자동 선택합니다." : `${selectedModel.fullName}가 답합니다.`} {webSearch ? "최신 정보는 반드시 검색하고, 나머지는 필요할 때 자동 검색합니다." : "웹검색은 꺼져 있습니다."}</p>
               <div className="mode-summary">
                 <span>✦ 자동 기본</span><span>⚡ Luna 절약</span><span>◆ Terra 균형</span><span>🧠 Sol 깊게</span>
               </div>
