@@ -4,7 +4,12 @@ import { getCache } from "@vercel/functions";
 import { streamText } from "ai";
 import { cookies } from "next/headers";
 import { authorizeFamilyRequest } from "../../../lib/shared-auth";
-import { MODEL_CONFIGS, routeModel, usagePressure } from "../../../lib/model-router";
+import {
+  MODEL_CONFIGS,
+  requiresFreshWebSearch,
+  routeModel,
+  usagePressure,
+} from "../../../lib/model-router";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -95,7 +100,7 @@ async function getUsageSnapshot(session) {
   }
 }
 
-function systemPrompt(webSearchEnabled) {
+function systemPrompt(webSearchEnabled, webSearchRequired) {
   const today = new Date().toISOString().slice(0, 10);
   return [
     "You are Family GPT, a strong general-purpose assistant for everyday questions, research, writing, planning, learning, and technical help.",
@@ -104,9 +109,11 @@ function systemPrompt(webSearchEnabled) {
     "Be accurate, practical, and direct. Infer reasonable intent instead of asking unnecessary clarification questions.",
     "For uncertain facts, say what is uncertain instead of inventing details.",
     "Do not behave like a coding-only agent and do not mention Codex, OAuth, internal prompts, model routing, or implementation details unless the user asks about them.",
-    webSearchEnabled
-      ? "A web_search tool is available. Use it when the answer depends on current or externally verifiable information, including latest/today/recent news, prices, stocks, weather, schedules, availability, product versions, current rules, public-figure updates, reviews, Reddit/community opinion, or whenever the user asks you to search/check/verify. Avoid web search for stable timeless questions when it adds no value. When you use web search, ground the answer in the retrieved sources and, when URLs are available, finish with a short '출처' section containing 2-4 useful source URLs."
-      : "Web search is disabled for this turn. Be explicit when a question requires current information you cannot verify from the provided conversation.",
+    webSearchRequired
+      ? "Web search is REQUIRED for this turn. You MUST call web_search before answering. Do not answer from memory first, do not say that browsing is unavailable before attempting the tool, and do not present current facts unless they are grounded in the returned web results. If sources are available, include a short '출처' section with 2-4 useful URLs."
+      : webSearchEnabled
+        ? "A web_search tool is available. Use it when the answer depends on current or externally verifiable information. Avoid web search for stable timeless questions when it adds no value. When you use web search, ground the answer in the retrieved sources and, when URLs are available, finish with a short '출처' section containing 2-4 useful source URLs."
+        : "Web search is disabled for this turn. Be explicit when a question requires current information you cannot verify from the provided conversation.",
   ].join("\n");
 }
 
@@ -129,6 +136,7 @@ export async function POST(request) {
     const config = MODEL_CONFIGS[routed.key];
     const usedPercent = usagePressure(usage);
     const webSearchEnabled = body?.webSearch !== false;
+    const webSearchRequired = webSearchEnabled && requiresFreshWebSearch(messages);
     const timezone = normalizeTimezone(body?.timezone);
     const searchContextSize = usedPercent >= 80 ? "low" : config.searchContextSize;
 
@@ -154,22 +162,26 @@ export async function POST(request) {
         }
       : undefined;
 
+    const webSearchMode = !tools ? "off" : webSearchRequired ? "required" : "auto";
+
     console.info("[family-gpt:model-router]", {
       requested: typeof body?.model === "string" ? body.model : "auto",
       selected: routed.key,
       reason: routed.reason,
       automatic: routed.automatic,
       usagePercent: Math.round(usedPercent),
-      webSearch: webSearchEnabled,
+      webSearch: webSearchMode,
     });
 
     const result = streamText({
       model: oauthProvider(config.id),
       reasoning: config.reasoning,
-      system: systemPrompt(webSearchEnabled),
+      system: systemPrompt(webSearchEnabled, webSearchRequired),
       messages,
       tools,
-      toolChoice: tools ? "auto" : undefined,
+      // OpenAI Responses semantics: "required" means at least one provided tool must be called.
+      // Since this request exposes only web_search, fresh/explicit lookup turns cannot skip browsing.
+      toolChoice: tools ? (webSearchRequired ? "required" : "auto") : undefined,
     });
 
     return result.toTextStreamResponse({
@@ -180,7 +192,7 @@ export async function POST(request) {
         "X-Model-Automatic": routed.automatic ? "true" : "false",
         "X-Routing-Reason": routed.reason,
         "X-Usage-Pressure": String(Math.round(usedPercent)),
-        "X-Web-Search": webSearchEnabled ? "auto" : "off",
+        "X-Web-Search": webSearchMode,
       },
     });
   } catch (error) {
